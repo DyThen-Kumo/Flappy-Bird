@@ -28,7 +28,7 @@ Observation gồm 12 số `float64`, mặc định đã được chia tỉ lệ 
 | 11 | Góc nghiêng `rot` | 90 | −90 đến 45 |
 
 - Ống có x > 288, tức chưa vào màn hình, bị thay bằng `(288, 0, 512)`, hay `(1, 0, 1)` sau khi chia. Ống mới được tạo ở x = 397,6 nên bị che trong khoảng 28 khung hình đầu. Đo được: bộ thứ ba (chỉ số 6, 7, 8) bị che 75% thời gian; bộ thứ hai (chỉ số 3, 4, 5) chỉ bị che trong 36 khung hình đầu mỗi ván, chiếm 2,7% số khung hình.
-- Ống cần vượt là bộ thứ nhất nếu x₀ + 52 − 57 > 0, tức mép phải của ống đó chưa qua mép trái của chim (x₀ là giá trị ở chỉ số 0); ngược lại là bộ thứ hai. Ống chim vừa bay qua ở lại bộ thứ nhất thêm khoảng 14 khung hình. Đo bằng luật viết tay: ống cần vượt ở bộ thứ nhất trong 63,7% số khung hình và ở bộ thứ hai trong 36,3%.
+- Ống cần vượt là bộ thứ nhất nếu x₀ + 52 − 57 > 0, tức mép phải của ống đó chưa qua mép trái của chim (x₀ tính bằng pixel, tức giá trị ở chỉ số 0 nhân 288); ngược lại là bộ thứ hai. Ống chim vừa bay qua ở lại bộ thứ nhất thêm khoảng 14 khung hình. Đo bằng luật viết tay: ống cần vượt ở bộ thứ nhất trong 63,7% số khung hình và ở bộ thứ hai trong 36,3%.
 - `rot` chỉ dùng để vẽ và không ảnh hưởng vật lý. Khi `vy` < 10 thì `rot = 18 − 3·vy`. Có thể bỏ nó khỏi đầu vào.
 
 ## 3. Luật vật lý và reward
@@ -120,7 +120,7 @@ Không phải lần lệch nào cũng gây chết. Ở vùng trống, sai một 
 
 ## 5. Cấu hình khởi đầu
 
-Các giá trị dưới đây được chọn bằng lập luận và chưa được kiểm chứng bằng huấn luyện.
+Các giá trị dưới đây được chọn bằng lập luận. Cấu hình này đã được chạy 3 lần trên Colab (dừng ở 1, 5 và 10 triệu khung hình) và học được; kết quả ở [README.md](README.md) mục 5–6, đối chiếu với lập luận ở cuối mục này. Mới có một cấu hình nên các giá trị chưa được so sánh với lựa chọn khác.
 
 | Tham số | Giá trị |
 |---|---|
@@ -133,7 +133,8 @@ Các giá trị dưới đây được chọn bằng lập luận và chưa đư
 | Tần suất cập nhật | 1 lần mỗi 4 khung hình |
 | Đồng bộ Target Network | Mỗi 1.000 lần cập nhật, tức 4.000 khung hình |
 | ε | Giảm đều từ 1,0 về 0,01 trong 100.000 khung hình đầu, sau đó giữ nguyên; có thể giảm tiếp về 0,001 khi agent đã vượt được nhiều ống |
-| Tổng thời lượng | Ít nhất 1 triệu khung hình |
+| Xác suất FLAP khi chọn ngẫu nhiên | 0,1 trong notebook Colab (`random_flap_prob`); 0,5 trong các notebook `01` đến `06` |
+| Tổng thời lượng | Ít nhất 1 triệu khung hình theo lập luận dưới đây; đo được cần khoảng 2 triệu để Q ổn định (xem cuối mục) |
 
 Lý do của các giá trị trên:
 
@@ -143,6 +144,13 @@ Lý do của các giá trị trên:
 - Theo cách nhìn đơn giản, mỗi chu kỳ đồng bộ Target Network giống một vòng Value Iteration: giá trị lan ngược thêm khoảng một bước. Sau k lần đồng bộ, phần chưa lan tới còn cỡ γ^k, và muốn γ^k ≤ 0,1 với γ = 0,99 thì k ≈ 230. 1 triệu khung hình cho khoảng 250 lần đồng bộ, vừa đủ mức này, nên đó là mức tối thiểu.
 - Nếu loss dao động mạnh, có thể thay MSE bằng Huber Loss. Huber Loss giống MSE khi sai số nhỏ nhưng chỉ tăng tuyến tính khi sai số lớn, nên vài Target lệch nhiều không kéo mạng đi quá xa.
 - Khi thử ngẫu nhiên, FLAP được chọn với xác suất 50%, gấp khoảng 8,6 lần tần suất vỗ cánh của luật viết tay (5,8%). Có thể cho hành động ngẫu nhiên là FLAP với xác suất nhỏ hơn, ví dụ 0,1: khi đó 6,3% số ván ngẫu nhiên vượt được ống đầu tiên, so với 0% khi xác suất là 0,5. Vì Q-Learning là off-policy, Target không cần đổi. Notebook Colab `Code/FlappyBird_Colab.ipynb` dùng giá trị 0,1 (tham số `random_flap_prob`); các notebook `01` đến `06` vẫn chọn đều 0,5.
+
+Đối chiếu với 3 lần chạy trên Colab (số liệu từ `Results/dqn_run*/history.jsonl`, phân tích ở `Results_Analysis.ipynb`):
+
+- Mean max Q trên batch đạt 10,0–10,7 ở 1 triệu khung hình (250 lần đồng bộ) và chỉ vào vùng 12 từ khoảng 2 triệu (500 lần đồng bộ), rồi ổn định ở 12,2–12,5, không vượt 12,9. Lập luận "250 lần đồng bộ là vừa đủ" vì vậy đánh giá thấp thời lượng cần thiết khoảng 2 lần.
+- Điểm đánh giá bắt đầu tăng ở khoảng 350.000–500.000 khung hình. Checkpoint tốt nhất đạt 908,8 và 910,7 ống mỗi ván (100 ván, giới hạn 1.000), lấy ở 850.000 và 3.250.000 khung hình.
+- Cuối run, điểm huấn luyện chỉ khoảng 33–39 ống mỗi ván, trong khi đánh giá với ε = 0 đạt 150–200 ở giới hạn 200. Với ε = 0,01, vài hành động ngẫu nhiên trong một ván dài đã đủ làm chim chết; việc giảm ε về 0,001 chưa được thử.
+- Ba lần chạy cùng cấu hình chênh nhau nhiều ở cùng mốc: trung bình 10 lần đánh giá gần nhất tại 1 triệu khung hình là 85,7, 144,6 và 90,9. Muốn so sánh hai cấu hình cần nhiều lần chạy cho mỗi cấu hình.
 
 Mạng được cập nhật theo công thức sau. Ký hiệu Q(s, a; w) là Q do mạng với trọng số w tính ra. Loss là ½(Target − Q(s,a;w))², và Gradient Descent dịch w ngược hướng gradient, coi Target là hằng số:
 
@@ -210,11 +218,11 @@ lặp với frame = 1, 2, …, tổng số khung hình:
 
 Cách đánh giá:
 
-- Mỗi lần đánh giá chạy 20 ván với ε = 0 trên một môi trường riêng, để không cắt ngang ván huấn luyện đang chạy; lần cuối chạy 100 ván. Dùng seed (số khởi tạo bộ sinh ngẫu nhiên, quyết định chuỗi khe) cố định và khác seed huấn luyện, để các lần đánh giá so sánh được với nhau.
-- Đặt `score_limit` để agent giỏi không chơi mãi. Với giới hạn 1.000, khi agent đã giỏi, 20 ván dài khoảng 760.000 khung hình và tốn thời gian gấp khoảng 3,5 lần một chu kỳ huấn luyện 25.000 khung hình; giới hạn 200 đưa con số này xuống khoảng 0,7 lần. Các lần đánh giá định kỳ nên dùng 200, lần cuối có thể dùng 1.000.
+- Mỗi lần đánh giá chạy 20 ván với ε = 0 trên một môi trường riêng, để không cắt ngang ván huấn luyện đang chạy; lần cuối chạy 100 ván. Dùng seed (số khởi tạo bộ sinh ngẫu nhiên, quyết định chuỗi khe) cố định và khác seed huấn luyện, để các lần đánh giá so sánh được với nhau. Cài đặt hiện tại chỉ đặt seed ở ván đầu; chuỗi khe của các ván sau phụ thuộc số ống đã sinh ở các ván trước, tức phụ thuộc chính sách đang được chấm. Muốn mọi checkpoint gặp cùng chuỗi khe thì phải đặt seed riêng cho từng ván.
+- Đặt `score_limit` để agent giỏi không chơi mãi. Theo bảng tốc độ ở cuối mục này, một chu kỳ huấn luyện 25.000 khung hình mất khoảng 17 giây (6.250 lần cập nhật và 25.000 lần chọn hành động). Khi agent đã giỏi, 20 ván với giới hạn 200 dài khoảng 152.000 khung hình, tức khoảng 44 giây, gấp 2,6 lần chu kỳ huấn luyện; với giới hạn 1.000 là khoảng 760.000 khung hình, tức khoảng 220 giây, gấp 13 lần. Đo trên Colab: một chu kỳ 25.000 khung hình kèm đánh giá mất khoảng 1 phút khi agent còn kém và 3,1–4,3 phút khi cả 20 ván đạt 200 ống, nên đánh giá tốn khoảng 2–3 lần huấn luyện. Các lần đánh giá định kỳ nên dùng 200, lần cuối có thể dùng 1.000.
 - Báo cáo trung bình, trung vị, thấp nhất và cao nhất của điểm, vì điểm dao động mạnh: luật viết tay đạt từ 4 đến 160 ống.
 - Khi agent đã chơi tốt, Q của các trạng thái an toàn nên tiến về khoảng 11,9 đến 12,9, còn trạng thái sát va chạm có Q thấp hơn, xuống tới khoảng −1. Không trạng thái nào có giá trị thật cao hơn 12,9, nên Q vượt rõ mức này là dấu hiệu đánh giá quá cao hoặc việc học đang phân kỳ.
-- Lưu checkpoint (bản lưu trọng số) tốt nhất theo điểm đánh giá, vì đường học của DQN thường không tăng đều.
+- Lưu checkpoint (bản lưu trọng số) tốt nhất theo điểm đánh giá, vì đường học của DQN thường không tăng đều. Điểm bị chặn ở `score_limit`, nên tiêu chí "lớn hơn hẳn mức tốt nhất cũ" giữ mãi lần đầu tiên chạm trần: trong lần chạy 10 triệu khung hình, checkpoint được giữ là ở 850.000. Khi điểm đã chạm trần cần tiêu chí khác, ví dụ đánh giá thêm ván hoặc với giới hạn cao hơn.
 
 Về tốc độ, CPU là đủ. TensorFlow từ bản 2.11 không dùng GPU trên Windows, nên mọi phép tính chạy trên CPU. Đo trên máy phát triển trong env `flappybird`, 1 luồng và mạng như trên (69.891 tham số):
 
@@ -225,7 +233,7 @@ Về tốc độ, CPU là đủ. TensorFlow từ bản 2.11 không dùng GPU tr�
 | Chọn hành động bằng `model(x)` không bọc | khoảng 380 lần/giây |
 | Chọn hành động bằng `model.predict(x)` | khoảng 22 lần/giây |
 
-1 triệu khung hình ứng với 250.000 lần cập nhật (khoảng 6,5 phút) và tối đa 1 triệu lần chọn hành động (khoảng 5 phút), tức khoảng 11 đến 12 phút tính toán chưa kể thời gian chạy trò chơi. Vì vậy:
+1 triệu khung hình ứng với 250.000 lần cập nhật (khoảng 6,5 phút) và tối đa 1 triệu lần chọn hành động (khoảng 5 phút), tức khoảng 11 đến 12 phút tính toán chưa kể thời gian chạy trò chơi. Đo trên Colab, 1 triệu khung hình đầu mất 70–82 phút, vì con số trên chưa tính chi phí chạy trò chơi và Python ở mỗi bước, cũng như đánh giá định kỳ. Vì vậy:
 
 - Bọc hàm cập nhật và hàm chọn hành động trong `tf.function`. Tự viết bước cập nhật bằng `tf.GradientTape` thay vì `model.fit`, vì Target được tính từ hai mạng ở mỗi batch.
 - Không dùng `model.predict` để chọn hành động từng khung hình: hàm này dành cho dữ liệu lớn và tốn chi phí khởi động ở mỗi lần gọi, nên 1 triệu khung hình sẽ mất khoảng 13 giờ.
