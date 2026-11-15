@@ -4,7 +4,7 @@ FlappyBird là trò chơi một nút bấm. Con chim liên tục rơi xuống, v
 
 Đồ án xây dựng một chương trình AI, gọi là agent, tự học chơi trò này. Không ai dạy agent cách chơi: nó chơi thử rất nhiều ván, nhận điểm thưởng hoặc phạt sau mỗi hành động, và dần tìm ra cách chơi tốt. Cách học này gọi là học tăng cường (Reinforcement Learning, RL).
 
-Phương pháp được chọn là DQN (Deep Q-Network) kèm hai cải tiến Double DQN và Dueling Network. Agent không biết luật chơi, còn số tình huống thì quá nhiều để ghi vào một bảng, nên agent dùng một mạng nơ-ron để học cách chấm điểm từng hành động. DQN là cách huấn luyện mạng đó một cách ổn định. Mục 3 đi qua 9 bước lập luận để đến lựa chọn này.
+Phương pháp được chọn là DQN (Deep Q-Network) kèm hai cải tiến Double DQN và Dueling Network. Agent không biết luật chơi, còn số tình huống thì quá nhiều để ghi vào một bảng, nên agent dùng một mạng nơ-ron để học cách chấm điểm từng hành động. DQN là cách huấn luyện mạng đó một cách ổn định. Mục 3 sẽ đi qua 9 bước lập luận để đến lựa chọn này.
 
 Môi trường là thư viện [flappy-bird-gymnasium](https://github.com/markub3327/flappy-bird-gymnasium) phiên bản 0.4.0. Lý thuyết lấy từ các tài liệu trong folder [Knowledge](Knowledge/). Số liệu đo được, công thức chi tiết và cấu hình cài đặt nằm ở [Implementation_Notes.md](Implementation_Notes.md).
 
@@ -14,8 +14,7 @@ Môi trường là thư viện [flappy-bird-gymnasium](https://github.com/markub
 |---|---|
 | Agent | Chương trình ra quyết định, tức "người chơi" AI |
 | Môi trường | Trò chơi mà agent tương tác: nhận hành động, trả về tình huống mới và reward |
-| Khung hình, bước | Một lượt: agent chọn một hành động, trò chơi chạy thêm một khung hình |
-| Trạng thái | Tình huống hiện tại của trò chơi. Phần agent nhìn thấy gọi là observation |
+| Trạng thái | Tình huống hiện tại của trò chơi, phần agent nhìn thấy, gọi là observation |
 | Hành động | Vỗ cánh hoặc không |
 | Reward | Điểm thưởng (dương) hoặc phạt (âm) mà môi trường trả về sau mỗi bước |
 | Episode | Một ván chơi, từ lúc bắt đầu đến khi chim va chạm |
@@ -50,8 +49,6 @@ Biết tình huống hiện tại và hành động thì biết chính xác khun
 | Đang ở phía trên mép màn hình | −0,5 |
 | Va chạm (chạm ống hoặc chạm đất) | −1, và ván kết thúc |
 
-Mỗi khung hình chỉ nhận một giá trị. Khi nhiều tình huống xảy ra cùng lúc, dòng nằm dưới trong bảng được áp dụng.
-
 ### 1.5. Ván chơi kết thúc khi nào
 
 Ván chỉ kết thúc khi chim va chạm, và không có giới hạn thời gian. Bay lên trên mép màn hình chỉ bị phạt; chim cũng không thể bay vòng qua phía trên ống, vì ống trên kéo dài lên cao hơn mức chim bay tới được.
@@ -60,7 +57,21 @@ Một agent đủ giỏi có thể chơi mãi. Tính toán trên luật chơi ch
 
 ### 1.6. Mốc so sánh
 
-Chơi ngẫu nhiên, vỗ cánh ở một nửa số khung hình, thì cả 1.000 ván thử đều chết ở ống đầu tiên với 0 điểm. Một luật viết tay đơn giản, vỗ cánh khi chim sắp rơi quá thấp so với khe, đạt trung bình 34,2 ống mỗi ván. Hai con số này là mốc để so sánh agent. Với luật viết tay, chỉ 0,075% số bước là va chạm, nên trong dữ liệu va chạm là sự kiện rất hiếm.
+Để biết agent chơi tốt hay dở, cần hai cách chơi đơn giản làm mốc.
+
+**Chơi ngẫu nhiên.** Ở mỗi khung hình, tung đồng xu: vỗ cánh hoặc không, mỗi bên một nửa. Cả 1.000 ván thử đều chết ở ống đầu tiên, với 0 điểm: chim vỗ cánh quá nhiều nên bay quá cao và đâm vào ống trên.
+
+**Luật viết tay.** Đây là một quy tắc do người viết sẵn, không học gì cả. Ý tưởng giống cách người mới chơi: cứ giữ chim ở sát phía dưới khe của ống sắp tới, sắp rơi xuống thấp quá thì vỗ cánh. Cụ thể, ở mỗi khung hình luật làm ba việc:
+
+1. Tìm ống cần vượt: ống gần nhất mà chim chưa bay qua hết.
+2. Kẻ một vạch ngang cao hơn mép dưới khe của ống đó một khoảng nhỏ (12 pixel, tức khoảng nửa thân chim).
+3. Đoán vị trí chim ở khung hình sau nếu không vỗ cánh. Nếu khi đó đáy chim sẽ thấp hơn vạch thì vỗ cánh, ngược lại thì không làm gì.
+
+Luật chỉ dùng những gì agent cũng nhìn thấy (12 con số của observation, mục 1.1). Riêng bước 3 cần biết trọng lực kéo chim xuống thế nào, tức một phần luật chơi mà agent không được biết. Luật đạt trung bình 34,2 ống mỗi ván trên 200 ván, nhưng điểm dao động mạnh: có ván chỉ qua 4 ống, có ván qua hơn 150 ống.
+
+Hai con số 0 và 34,2 là mốc để so sánh agent: agent học được thì phải vượt xa 0, và chơi tốt thì phải vượt 34,2. Với luật viết tay, chỉ 0,075% số bước là va chạm, nên trong dữ liệu va chạm là sự kiện rất hiếm.
+
+Cách cài đặt chi tiết và số liệu đo được nằm ở [Implementation_Notes.md](Implementation_Notes.md) mục 4.
 
 ## 2. Mô hình MDP
 
@@ -81,7 +92,7 @@ Agent không được biết T và R; nó chỉ thấy các transition (s, a, r,
 
 ### 2.2. Markov Property
 
-Markov Property đòi hỏi trạng thái hiện tại chứa đủ thông tin để dự đoán tương lai mà không cần nhớ quá khứ. Muốn biết khung hình sau, chỉ cần độ cao và vận tốc của chim cùng vị trí và khe của các ống, và 12 con số chứa đủ những thứ đó. Agent vì vậy dùng thẳng observation làm trạng thái. Nó không cần ghép nhiều khung hình liên tiếp, vì vận tốc đã có sẵn, và không cần biết điểm số, vì luật chơi không phụ thuộc vào điểm. Ống bị che gần như không ảnh hưởng: khe của nó hoàn toàn ngẫu nhiên, còn ống cần vượt luôn hiển thị. Ngoại lệ nhỏ là vị trí ngang của ống bị che cũng không được cho biết, nên agent không biết chính xác ống đó sẽ xuất hiện sớm hay muộn vài khung hình. Lúc đó ống còn ở xa, nên Markov Property chỉ bị vi phạm ở mức rất nhẹ.
+Markov Property đòi hỏi trạng thái hiện tại chứa đủ thông tin để dự đoán tương lai mà không cần nhớ quá khứ. Muốn biết khung hình sau, chỉ cần độ cao và vận tốc của chim cùng vị trí và khe của các ống, và 12 con số chứa đủ những thứ đó. Agent vì vậy dùng thẳng observation làm trạng thái. Nó không cần ghép nhiều khung hình liên tiếp, vì vận tốc đã có sẵn, và không cần biết điểm số, vì luật chơi không phụ thuộc vào điểm. Ống bị che gần như không ảnh hưởng: khe của nó hoàn toàn ngẫu nhiên, còn ống cần vượt luôn hiển thị. Ngoại lệ nhỏ là vị trí ngang của ống bị che cũng không được cho biết, nên agent không biết chính xác ống đó sẽ xuất hiện sớm hay muộn vài khung hình.
 
 ### 2.3. Living Reward và Discounting
 
@@ -127,7 +138,7 @@ Q-Learning + Q-Network
 DQN = Q-Network + Experience Replay + Target Network
  │  Bước 8: hai hành động có giá trị sát nhau; va chạm hiếm
  ▼
-DQN + Double DQN + Dueling Network (Prioritised Replay tùy chọn)
+DQN + Double DQN + Dueling Network
 
 Bước 9: so với các hướng khác, không hướng nào hợp hơn.
 ```
@@ -163,7 +174,7 @@ Agent **học Q(s, a)** rồi chọn hành động có Q lớn nhất (Policy Ex
 Cả hai thuật toán thuộc họ TD Learning. Sau mỗi transition, chúng kéo Q(s, a) lại gần một giá trị mục tiêu gọi là Target:
 
 ```
-Q(s,a) ← Q(s,a) + α · (Target − Q(s,a))       α: tốc độ học (learning rate), một số nhỏ
+Q(s,a) ← Q(s,a) + α · (Target − Q(s,a))       α: learning rate
 ```
 
 Target bằng reward vừa nhận cộng γ nhân ước lượng Q ở trạng thái kế tiếp, hoặc chỉ bằng reward nếu trạng thái kế tiếp là va chạm. Việc dùng chính ước lượng của mình để tạo mục tiêu gọi là bootstrapping, còn hiệu Target − Q gọi là TD Error.
@@ -203,7 +214,7 @@ Q(s, a) gồm một phần chung lớn cho cả hai hành động và một ph�
 
 Va chạm rất hiếm trong dữ liệu (mục 1.6). Prioritised Replay lấy thường xuyên hơn những mẫu mà mạng đoán sai nhiều, nên gặp mẫu va chạm nhiều hơn, đổi lại cài đặt phức tạp hơn. Nó chỉ nên được thêm khi điểm đánh giá tăng rồi tụt và không hồi phục, dấu hiệu agent quên cách tránh va chạm. Một lần tụt rồi hồi phục ngay ở lần đánh giá sau chưa đủ, vì nó có thể chỉ là nhiễu của việc chấm trên ít ván.
 
-Phương pháp cuối cùng là **DQN kèm Double DQN và Dueling Network**, còn Prioritised Replay để dành khi cần.
+Phương pháp cuối cùng là **DQN kèm Double DQN và Dueling Network**.
 
 ### Bước 9. Kiểm tra ngược: hướng khác có hợp hơn không?
 
@@ -241,10 +252,10 @@ Lúc đầu agent chơi gần như ngẫu nhiên và không bao giờ ghi điể
 
 Kích thước mạng, các siêu tham số, mã giả và cách đánh giá chi tiết nằm ở [Implementation_Notes.md](Implementation_Notes.md).
 
-## 5. Hạn chế
+<!-- ## 5. Hạn chế
 
 - Cấu hình trong [Implementation_Notes.md](Implementation_Notes.md) được chọn bằng lập luận. Nó đã được chạy 3 lần và agent học được, vượt xa luật viết tay ([README.md](README.md) mục 6), nhưng chưa được so sánh với cấu hình nào khác. Cũng chưa có lần chạy bỏ Double DQN hoặc Dueling Network, nên lập luận ở Bước 8 chưa có bằng chứng thực nghiệm riêng.
 - Ba lần chạy cùng cấu hình cho kết quả chênh nhau nhiều ở cùng thời điểm huấn luyện, nên một lần chạy không đủ để kết luận về một cấu hình.
 - Các tỷ lệ đo được, như tần suất va chạm, lấy từ luật viết tay; dữ liệu của DQN sẽ khác.
 - Q-Learning chỉ được bảo đảm hội tụ khi dùng bảng. Với mạng nơ-ron thì không có bảo đảm đó, và Experience Replay cùng Target Network chỉ làm giảm sự mất ổn định.
-- Kết luận "có thể chơi mãi" được tính trên luật chơi của phiên bản 0.4.0. Nó cho biết bài toán có lời giải hoàn hảo; DQN có học được lời giải đó hay không thì vẫn phải thử.
+- Kết luận "có thể chơi mãi" được tính trên luật chơi của phiên bản 0.4.0. Nó cho biết bài toán có lời giải hoàn hảo; DQN có học được lời giải đó hay không thì vẫn phải thử. -->

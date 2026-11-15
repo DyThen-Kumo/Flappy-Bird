@@ -2,7 +2,7 @@
 
 Một agent học chơi [`flappy-bird-gymnasium`](https://github.com/markub3327/flappy-bird-gymnasium) 0.4.0 bằng học tăng cường (RL), không được biết luật chơi. Phương pháp là **DQN kèm Double DQN và Dueling Network**, mạng nơ-ron viết bằng TensorFlow/Keras.
 
-Kết quả chính: qua 3 lần chạy cùng một cấu hình, checkpoint tốt nhất đạt trung bình **908,8 và 910,7 ống mỗi ván** trên 100 ván đánh giá (giới hạn 1.000 ống, ε = 0), so với 0 của chơi ngẫu nhiên và 34,2 của luật viết tay. Hai checkpoint này lấy ở khung hình 850.000 và 3.250.000, không phải cuối run (mục 6.5).
+Kết quả chính: qua 3 lần chạy cùng một cấu hình, checkpoint tốt nhất đạt trung bình **908,8 và 910,7 ống mỗi ván** trên 100 ván đánh giá (giới hạn 1.000 ống, ε = 0), so với 0 khi chơi ngẫu nhiên và 34,2 của luật viết tay. Hai checkpoint này lấy ở khung hình 850.000 và 3.250.000, không phải cuối run (mục 6.5).
 
 ## 1. Bài toán
 
@@ -12,7 +12,7 @@ Chim luôn rơi xuống; bấm thì chim vỗ cánh bật lên. Ống chạy t�
 - **Hành động**: {IDLE, FLAP}.
 - **Reward**: +0,1 mỗi khung hình còn sống; +1 khi vượt ống; −0,5 khi bay lên trên mép màn hình; −1 khi va chạm (ván kết thúc).
 - **Ván chơi không có giới hạn thời gian**, và phân tích luật chơi cho thấy có cách chơi không bao giờ va chạm.
-- **Mốc so sánh**: chơi ngẫu nhiên 0 ống; luật viết tay (vỗ cánh khi chim sắp thấp hơn khe) trung bình 34,2 ống.
+- **Mốc so sánh**: chơi ngẫu nhiên được 0 ống. Luật viết tay được trung bình 34,2 ống: ở mỗi khung hình, đoán vị trí chim ở khung hình sau nếu không vỗ; nếu khi đó đáy chim thấp hơn vạch cách mép dưới khe của ống sắp tới 12 pixel thì vỗ cánh. Code ở `Agent/hand_rule.py`.
 
 Chi tiết và thuật ngữ: [Problem_Definition.md](Problem_Definition.md) mục 1.
 
@@ -160,7 +160,7 @@ Hình trên dùng trung bình trượt qua 8 lần đánh giá. Ở dqn2 và dqn
 ![Điểm trung bình trên 100 ván đánh giá cuối, so với luật viết tay](Results/figures/05_final_eval.png)
 
 - **Bảng này không so sánh 1M / 10M / 5M.** `best.weights.h5` được lưu khi eval mean vượt *hẳn* mức cao nhất trước đó, mà điểm bị chặn ở 200. Vì vậy với dqn2 và dqn3, checkpoint được giữ là lần đầu chạm trần. 9,15 triệu khung hình sau của dqn2 và 1,75 triệu khung hình sau của dqn3 chưa được đánh giá 100 ván, dù `last.weights.h5` và các snapshot vẫn còn.
-- Cả ba **vượt xa mốc so sánh**: chơi ngẫu nhiên đạt 0, luật viết tay đạt 34,2.
+- Cả ba **vượt xa mốc so sánh**: chơi ngẫu nhiên đạt 0, luật viết tay đạt 34,2 ([Problem_Definition.md](Problem_Definition.md) mục 1.6).
 - Checkpoint 850k của dqn2 và checkpoint 3,25M của dqn3 ngang nhau (908,8 so với 910,7). Vậy dữ liệu **không** cho thấy cần tới 5M khung hình, vì một checkpoint chưa tới 1M (khoảng 1 giờ trên Colab) đã đạt mức này. Ngược lại, checkpoint 625k của dqn1 chỉ đạt 341,6: kết quả ở cùng một mốc phụ thuộc nhiều vào từng lần chạy.
 - max Q trung bình trên các trạng thái đã đi qua lần lượt là 8,16 / 9,95 / 12,00. Hai giá trị đầu thấp hơn vùng 11,9–12,9 dự đoán cho agent chơi tốt, phù hợp với việc chúng là checkpoint sớm. Không trạng thái nào vượt 12,9.
 - Seed 12345 vừa dùng để chọn `best` vừa dùng cho đánh giá cuối, nên đánh giá cuối không hoàn toàn độc lập với bước chọn mô hình.
@@ -202,8 +202,9 @@ GIF được chuyển từ mp4 gốc (30 khung hình/giây, 288 × 512) xuống 
 
 - Môi trường local: conda env `flappybird` (Python 3.11, TensorFlow 2.21, Keras 3.15.1, gymnasium 1.3.0, flappy-bird-gymnasium 0.4.0, chạy trên CPU), danh sách gói trong `requirements.txt` (Windows). Kết quả ở mục 6 được sinh trên Colab với Python 3.13 và Keras 3.13.2; notebook Colab chỉ ghim gymnasium và flappy-bird-gymnasium.
 - Huấn luyện: mở `Code/FlappyBird_Colab.ipynb` trên Google Colab và chỉnh `CONFIG` (`run_name`, `total_frames`). Notebook lưu toàn bộ trạng thái lên Drive tại mỗi lần đánh giá và tự tiếp tục khi chạy lại.
-- Lưu ý khi dùng thư viện: đặt `use_lidar=False`; huấn luyện với `render_mode=None` (chế độ `"human"` bị khóa 30 khung hình/giây); gọi `reset()` sau `terminated` hoặc `truncated`. `checkenv.py` gọi `env.step()` hai lần mỗi vòng, một lỗi đã biết (xem `Implementation_Notes.md` mục 1).
-- Kiểm thử: `pytest` đã cài trong env, nhưng repo chưa có file test nào.
+- Lưu ý khi dùng thư viện: đặt `use_lidar=False`; huấn luyện với `render_mode=None` (chế độ `"human"` bị khóa 30 khung hình/giây); gọi `reset()` sau `terminated` hoặc `truncated`.
+- Demo: `python Agent/play.py` mở cửa sổ game cho agent tự chơi; `python Agent/evaluate.py` chấm điểm nhiều ván không mở cửa sổ; `python Agent/hand_rule.py` chấm điểm luật viết tay. Mặc định dùng `Results/dqn_run3/best.weights.h5` (file trọng số không nằm trong git).
+- Kiểm thử: `pytest Agent`.
 
 ## 10. Tài liệu tham khảo
 

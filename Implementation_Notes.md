@@ -11,7 +11,6 @@ Ghi chú này đi kèm [Problem_Definition.md](Problem_Definition.md) và chứa
 - Sau khi `terminated`, phải tự gọi `reset()`. Thư viện không chặn `step()` tiếp theo và vẫn chạy với con chim đã va chạm. Đo được: trong 80 lần gọi `step()` sau khi chim đâm vào ống, có 30 lần trả về `terminated = False`. Các transition đó không được đưa vào agent.
 - Docstring của thư viện đã lỗi thời. Nó ghi observation gồm 2 giá trị và `step()` trả về 4 giá trị, trong khi thực tế là 12 và 5.
 - Huấn luyện với `render_mode=None`. Chế độ `"human"` bị khóa ở 30 khung hình/giây, nên 1 triệu khung hình mất khoảng 9,3 giờ. Không vẽ hình thì thư viện chạy khoảng 150.000 bước/giây, còn chế độ LIDAR chỉ 1.152 bước/giây.
-- [checkenv.py](checkenv.py#L13) gọi `env.step()` hai lần mỗi vòng lặp. Dòng `print(env.step(action))` chạy thêm một bước, nên kết quả in ra và điều kiện dừng thuộc về hai bước khác nhau. Cần bỏ lời gọi thứ hai.
 - Theo quy ước kiến trúc của dự án ([CLAUDE.md](CLAUDE.md): tách game, môi trường và AI), chỉ module môi trường được import `gymnasium`. Agent, replay buffer và Q-Network chỉ làm việc với mảng số, nên kiểm thử được bằng dữ liệu giả.
 
 ## 2. Observation
@@ -74,6 +73,29 @@ Nếu x_ống' < −52: ống được đặt lại ở x = 397.6, với khe m�
 | Luật viết tay: vỗ cánh khi và chỉ khi, nếu không vỗ, đáy chim ở khung hình sau sẽ xuống thấp hơn một vạch đặt cao hơn mép dưới khe của ống cần vượt 12 pixel | 200 | 1.337 | Trung bình 34,2 ống, trung vị 25, từ 4 đến 160 |
 
 Với P(FLAP) = 0,5, chim đâm vào ống trên của ống đầu tiên đúng lúc ống này tới chỗ chim ở khung hình 50, trong khi lần ghi điểm sớm nhất cần 61 khung hình. Luật viết tay vỗ cánh ở 5,8% số khung hình, trung vị 18 khung hình giữa hai lần vỗ.
+
+### Cài đặt luật viết tay
+
+Code: [Agent/hand_rule.py](Agent/hand_rule.py), hàm `hand_rule(obs)`. Luật chỉ đọc observation (mục 2) và dùng các hằng số vật lý ở mục 3. Ở mỗi khung hình:
+
+```
+# 1. Ống cần vượt (mục 2): bộ thứ nhất nếu mép phải của nó chưa qua mép trái chim
+x₀          = obs[0] · 288
+gap_bottom  = (obs[2] nếu x₀ + 52 > 57, ngược lại obs[5]) · 512
+
+# 2. Vị trí chim ở khung hình sau nếu IDLE (mục 3)
+y           = obs[9] · 512
+vy'         = min(obs[10] · 10 + 1, 10)
+y'          = y + min(vy', 404.48 − y − 24)
+
+# 3. Quyết định
+FLAP  nếu  y' + 24 > gap_bottom − 12,   ngược lại IDLE
+```
+
+- `y' + 24` là đáy chim, vì chim cao 24 pixel. Vạch `gap_bottom − 12` cách mép dưới khe 12 pixel, khoảng nửa thân chim.
+- Luật không dùng `rot`, ống thứ ba và mép trên khe.
+- Kiểm tra lại bằng code trên (200 ván, `score_limit` 1.000): seed 0, 1, 2 cho trung bình 35,0 / 35,2 / 37,0 ống, trung vị 23–27, thấp nhất 4. Với seed 0, tỷ lệ vỗ cánh là 5,81% trên 273.409 khung hình. Bảng trên ghi 34,2 vì seed của lần đo đó không được lưu. Chênh lệch nằm trong mức dao động giữa các seed, nên các tài liệu khác vẫn dùng mốc 34,2.
+- Chạy lại: `python Agent/hand_rule.py --episodes 200 --seed 0`.
 
 ### Cỡ bài toán
 
